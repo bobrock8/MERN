@@ -1,6 +1,7 @@
 const uuid = require("uuid").v4;
-
+const { validationResult } = require("express-validator");
 const HttpError = require("../models/http-error");
+const getCoordinatesForAddress = require("../util/location");
 
 let DUMMY_PLACES = [
   {
@@ -45,8 +46,23 @@ const getPlacesByUserId = (req, res, next) => {
   res.json(places);
 };
 
-const createPlace = (req, res, next) => {
-  const { title, description, coordinates, address, creator } = req.body;
+const createPlace = async (req, res, next) => {
+  const errors = validationResult(req);
+
+  if (!errors.isEmpty()) {
+    return next(
+      new HttpError(`Invalid inputs passed, please check your data.`, 422)
+    );
+  }
+
+  const { title, description, address, creator } = req.body;
+  let coordinates;
+  try {
+    coordinates = await getCoordinatesForAddress(address);
+  } catch (error) {
+    return next(error);
+  }
+
   const newPlace = {
     id: uuid(),
     title,
@@ -62,6 +78,14 @@ const createPlace = (req, res, next) => {
 
 const updatePlaceById = (req, res, next) => {
   console.log("DUMMY_PLACES", DUMMY_PLACES);
+  const errors = validationResult(req);
+
+  if (!errors.isEmpty()) {
+    return next(
+      new HttpError(`Invalid inputs passed, please check your data.`, 422)
+    );
+  }
+
   const placeId = req.params.pid;
   const place = DUMMY_PLACES.find((p) => p.id === placeId);
   if (!place) {
